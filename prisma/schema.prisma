@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ALUNO
+  ADM
+  SUPER_ADMIN
+}
+
+enum ActivityType {
+  PROVA
+  TRABALHO
+  LISTA
+  SEMINARIO
+  OUTRO
+}
+
+model User {
+  id        String   @id @default(uuid())
+  nome      String
+  email     String   @unique
+  senhaHash String   @map("senha_hash")
+  telefone  String
+  role      Role     @default(ALUNO)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  createdSubjects   Subject[]            @relation("SubjectCreator")
+  memberships       SubjectMember[]
+  createdActivities Activity[]           @relation("ActivityCreator")
+  updatedActivities Activity[]           @relation("ActivityUpdater")
+  completions       ActivityCompletion[]
+
+  @@map("users")
+}
+
+model Subject {
+  id               String   @id @default(uuid())
+  nome             String
+  codigoDisciplina String?  @map("codigo_disciplina")
+  semestre         String
+  corHex           String   @default("#3B82F6") @map("cor_hex")
+  codigoConvite    String   @unique @map("codigo_convite")
+  criadoPorId      String   @map("criado_por_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  criadoPor  User            @relation("SubjectCreator", fields: [criadoPorId], references: [id])
+  members    SubjectMember[]
+  activities Activity[]
+
+  @@map("subjects")
+}
+
+model SubjectMember {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  subjectId String   @map("subject_id")
+  entrouEm  DateTime @default(now()) @map("entrou_em")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, subjectId])
+  @@map("subject_members")
+}
+
+model Activity {
+  id              String       @id @default(uuid())
+  subjectId       String       @map("subject_id")
+  titulo          String
+  descricao       String?
+  tipo            ActivityType @default(TRABALHO)
+  dataEntrega     DateTime     @map("data_entrega")
+  linkApoio       String?      @map("link_apoio")
+  criadoPorId     String       @map("criado_por_id")
+  atualizadoPorId String?      @map("atualizado_por_id")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  subject       Subject              @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  criadoPor     User                 @relation("ActivityCreator", fields: [criadoPorId], references: [id])
+  atualizadoPor User?                @relation("ActivityUpdater", fields: [atualizadoPorId], references: [id])
+  completions   ActivityCompletion[]
+
+  @@map("activities")
+}
+
+model ActivityCompletion {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  activityId  String   @map("activity_id")
+  concluidaEm DateTime @default(now()) @map("concluida_em")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, activityId])
+  @@map("activity_completions")
+}
